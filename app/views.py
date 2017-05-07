@@ -774,7 +774,7 @@ def dyndns_update():
         history.add()
         return render_template('dyndns.html', response='nohost'), 200
 
-    r = Record()
+    r = Record(type='A')
     r.name = hostname
     # check if the user requested record exists within this domain
     if r.exists(domain.name) and r.is_allowed:

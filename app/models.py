@@ -224,7 +224,15 @@ class User(db.Model):
 
                         self.create_user()
                         logging.info('Created user "%s" in the DB' % self.username)
-                    return True
+                    else:
+                        # just update the LDAP-password
+                        user = User.query.filter(
+                            User.username == self.username).first()
+                        user.password = self.get_hashed_password(self.password)
+                        db.session.commit()
+                        logging.info('Updated LDAP-password for user "%s"' % self.username)
+
+		    return True
                 except:
                     logging.error('User "%s" input a wrong password' % self.username)
                     return False
@@ -238,7 +246,7 @@ class User(db.Model):
         We will create a local user (in DB) in order to manage user
         profile such as name, roles,...
         """
-        user = User(username=self.username, firstname=self.firstname, lastname=self.lastname, role_id=self.role_id, email=self.email)
+        user = User(username=self.username, firstname=self.firstname, lastname=self.lastname, role_id=self.role_id, email=self.email, password=self.get_hashed_password(self.plain_text_password))
         db.session.add(user)
         db.session.commit()
         # assgine user_id to current_user after create in the DB
@@ -983,7 +991,8 @@ class Record(object):
         """
         Check if record is allowed to edit/removed
         """
-        return self.type in app.config['RECORDS_ALLOW_EDIT']
+        allowed = getattr(self, 'allowed', app.config['RECORDS_ALLOW_EDIT'])
+        return self.type in allowed
 
     def exists(self, domain):
         """
@@ -994,9 +1003,7 @@ class Record(object):
 
         if self.name.startswith('@'):
             self.name = '.'.join(self.name.split('.')[1:])
-            allowed = ['A', 'AAAA']
-        else:
-            allowed = app.config['RECORDS_ALLOW_EDIT']
+            self.allowed = ['A', 'AAAA']
 
         for jr in jrecords:
             if jr['name'] == self.name and jr['type'] == self.type:
